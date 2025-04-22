@@ -3,6 +3,10 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from scraper.siged_scraper import SigedScraper
 from scraper.municipioScraper import MunicipioScraper
+from scraper.localidadScraper import LocalidadScraper
+
+estado = "VERACRUZ DE IGNACIO DE LA LLAVE"
+sheet_id="1wvJ9gJPP-Q4YQvtLX94YKnS04peSWR6S-LAck6dQcIU"
 
 def run():
     scraper = SigedScraper()
@@ -14,11 +18,24 @@ def run():
     finally:
         scraper.cerrar()
 
+def municipioScraper():
+    try:
+        scraper = MunicipioScraper(estado)
+        scraper.obtener_municipios()
+    finally:
+        scraper.cerrar()
+
+def localidadScraper():
+    try:
+        scraper = LocalidadScraper(estado, sheet_id)
+        scraper.ejecutar()
+    finally:
+        scraper.cerrar()
+
+
 if __name__ == "__main__":
     """ run() """
-    estado = "VERACRUZ DE IGNACIO DE LA LLAVE"
-    sheet_id = "1wvJ9gJPP-Q4YQvtLX94YKnS04peSWR6S-LAck6dQcIU"
+    """ municipioScraper() """
+    localidadScraper()
     
-    scraper = MunicipioScraper(estado)
-    scraper.obtener_municipios()
-    scraper.cerrar()
+    
