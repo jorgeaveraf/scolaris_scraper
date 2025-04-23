@@ -5,6 +5,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from bs4 import BeautifulSoup
 from models.escuela import Escuela
+from utils.select_helper import select_if_different
 import pandas as pd
 import time
 
@@ -47,8 +48,8 @@ class SigedScraper:
         return base
 
 
-    def aplicar_filtros(self, filtros=None):
-        if filtros is None:
+    def aplicar_filtros(self, filtros:dict = None):
+        if filtros is None: 
             filtros = self._get_filtros()
 
         self.log("Esperando que cargue el formulario de filtros...")

@@ -100,3 +100,25 @@ def actualizar_status_en_hoja(sheet_id, hoja, columna_busqueda_1, valor_1, colum
             return
 
     print(f"⚠️ No se encontró coincidencia para {valor_1} / {valor_2} en la hoja {hoja}")
+
+def resetear_estado_hoja(sheet_id, hoja, columna_estado="status", nuevo_estado="pendiente"):
+    client = get_gspread_client()
+
+    sheet = client.open_by_key(sheet_id)
+    worksheet = sheet.worksheet(hoja)
+
+    data = worksheet.get_all_values()
+    headers = data[0]
+    rows = data[1:]
+
+    try:
+        col_idx_estado = headers.index(columna_estado)
+    except ValueError:
+        print(f"⚠️ La columna '{columna_estado}' no existe en la hoja '{hoja}'")
+        return
+
+    for i in range(len(rows)):
+        worksheet.update_cell(i + 2, col_idx_estado + 1, nuevo_estado)
+
+    print(f"🔄 Estado de todas las filas de la hoja '{hoja}' reiniciado a '{nuevo_estado}'.")
+
