@@ -5,6 +5,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from bs4 import BeautifulSoup
 from models.escuela import Escuela
+from utils.select_helper import select_if_different
 import pandas as pd
 import time
 
@@ -47,8 +48,8 @@ class SigedScraper:
         return base
 
 
-    def aplicar_filtros(self, filtros=None):
-        if filtros is None:
+    def aplicar_filtros(self, filtros:dict = None):
+        if filtros is None: 
             filtros = self._get_filtros()
 
         self.log("Esperando que cargue el formulario de filtros...")
@@ -74,6 +75,17 @@ class SigedScraper:
 
     def extraer_resultados(self):
         self.wait.until(EC.presence_of_element_located((By.ID, "sectionResultWithData")))
+
+        # Seleccionamos mostrar 50 registros
+        try:
+            selector = self.driver.find_element(By.NAME, "tabla-escuelas_length")
+            selector.click()
+            selector.find_element(By.XPATH, ".//option[@value='50']").click()
+            time.sleep(1)  # espera a que se actualice la tabla
+            self.log("🔁 Se configuró para mostrar 50 resultados por página.")
+        except Exception as e:
+            self.log(f"⚠️ No se pudo cambiar el número de registros: {e}")
+
         self.wait.until(EC.presence_of_all_elements_located((By.XPATH, "//table//tbody/tr")))
 
         filas = self.driver.find_elements(By.XPATH, "//table//tbody/tr")
