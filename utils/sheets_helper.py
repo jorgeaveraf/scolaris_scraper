@@ -31,42 +31,67 @@ def subir_csv_a_google_sheets(csv_path, sheet_id, hoja):
 
     print(f"✅ Subido a Google Sheets → Hoja: '{hoja}' ({len(df)} filas)")
 
-def subir_csv_a_google_sheets_append(csv_path, sheet_id, hoja, start_col='A', skip_header=False):
-    client = get_gspread_client()
 
-    sheet = client.open_by_key(sheet_id)
-    
-    df = pd.read_csv(csv_path)
-
-    # Si se desea ignorar encabezado
-    if skip_header:
-        df = df.iloc[1:]
-
-    hoja_normalizada = hoja.strip().lower()
+def subir_csv_a_google_sheets_append(
+    csv_path: str,
+    sheet_id: str,
+    hoja: str,
+    start_col: str = "A",
+    skip_header: bool = False
+):
+    """
+    Añade las filas de un CSV al final de la hoja indicada,
+    empezando en la columna `start_col` (p.ej. "B", "C", ...).
+    skip_header=True hace que se descarten los nombres de columna.
+    """
+    # 1) Lee el CSV
     try:
-        worksheet = next(
-            ws for ws in sheet.worksheets()
-            if ws.title.strip().lower() == hoja_normalizada
-        )
+        df = pd.read_csv(csv_path)
+    except pd.errors.EmptyDataError:
+        print(f"⚠️ El archivo {csv_path} está vacío. Nada que subir.")
+        return
+
+    if skip_header:
+        if "nombre" in df.iloc[0].values:
+            df = df.iloc[1:]
+        
+    if df.empty:
+        print("⚠️ No hay filas para subir después de aplicar skip_header.")
+        return
+
+    # 2) Autenticación y abrir hoja
+    scope = ["https://spreadsheets.google.com/feeds",
+             "https://www.googleapis.com/auth/drive"]
+    creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+    client = gspread.authorize(creds)
+    sh = client.open_by_key(sheet_id)
+
+    # 3) Localizar o crear la worksheet
+    norm = hoja.strip().lower()
+    try:
+        ws = next(w for w in sh.worksheets() if w.title.strip().lower() == norm)
     except StopIteration:
-        worksheet = sheet.add_worksheet(title=hoja, rows="1000", cols=str(len(df.columns)))
+        ws = sh.add_worksheet(title=hoja,
+                              rows=str(len(df) + 10),
+                              cols=str(len(df.columns) + ord(start_col.upper()) - ord("A")))
 
-    start_col = 'B'
-    start_row = 2
-    col_offset = ord(start_col.upper()) - ord('A')  # Ej: B -> 1
-    start_cell = f"{start_col}{start_row}"
+    # 4) Preparar padding (celdas vacías antes de los datos)
+    pad = ord(start_col.upper()) - ord("A")
+    rows_to_append = []
 
-    # Escribir datos en el rango calculado
-    data_to_upload = df.values.tolist() if skip_header else [df.columns.values.tolist()] + df.values.tolist()
+    # (Opcional) incluir cabecera desplazada
+    if not skip_header:
+        header = df.columns.tolist()
+        rows_to_append.append([""] * pad + header)
 
-    worksheet.update(
-        start_cell,
-        data_to_upload,
-        value_input_option="USER_ENTERED"
-    )
+    # datos
+    for row in df.values.tolist():
+        rows_to_append.append([""] * pad + row)
 
+    # 5) Append_rows
+    ws.append_rows(rows_to_append, value_input_option="USER_ENTERED")
+    print(f"📌 {len(rows_to_append)} filas añadidas a '{hoja}' desde la columna {start_col}.")
 
-    print(f"📌 {len(df)} filas cargadas a la hoja '{hoja}' desde la columna {start_col}.")
 
 
 

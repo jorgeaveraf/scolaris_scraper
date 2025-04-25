@@ -75,6 +75,17 @@ class SigedScraper:
 
     def extraer_resultados(self):
         self.wait.until(EC.presence_of_element_located((By.ID, "sectionResultWithData")))
+
+        # Seleccionamos mostrar 50 registros
+        try:
+            selector = self.driver.find_element(By.NAME, "tabla-escuelas_length")
+            selector.click()
+            selector.find_element(By.XPATH, ".//option[@value='50']").click()
+            time.sleep(1)  # espera a que se actualice la tabla
+            self.log("🔁 Se configuró para mostrar 50 resultados por página.")
+        except Exception as e:
+            self.log(f"⚠️ No se pudo cambiar el número de registros: {e}")
+
         self.wait.until(EC.presence_of_all_elements_located((By.XPATH, "//table//tbody/tr")))
 
         filas = self.driver.find_elements(By.XPATH, "//table//tbody/tr")
