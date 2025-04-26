@@ -3,7 +3,7 @@ from scraper.maps_scraper import GoogleMapsDataEnricher
 from utils.sheets_helper import (
     leer_hoja_como_df,
     append_column_data,
-    actualizar_status_en_sheet,
+    actualizar_status_en_sheet
 )
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -18,9 +18,14 @@ class GoogleMapsEscuelasScraper:
     def ejecutar(self):
         print("📥 Leyendo hoja de cálculo...")
         df = leer_hoja_como_df(self.sheet_id, self.hoja_escuelas)
+        columnas_nuevas = ['telefono', 'pagina_web', 'horario', 'extra_info']
+
+        # Filtrar solo las filas pendientes
         df_pendientes = df[df["status"].str.lower() == "pendiente"]
 
-        columnas_nuevas = ['telefono', 'correo', 'pagina_web', 'horario', 'extra_info']
+        if df_pendientes.empty:
+            print("✅ No hay escuelas pendientes.")
+            return
 
         # Inicializar navegador
         options = Options()
@@ -30,18 +35,20 @@ class GoogleMapsEscuelasScraper:
 
         for _, row in df_pendientes.iterrows():
             nombre = row["nombre"]
-            print(f"\n🚀 Procesando: {nombre}")
+            print(f"🔍 Procesando: {nombre}")
 
             datos = enricher.enriquecer_fila(row)
 
             if datos and any(datos.values()):
                 df_update = pd.DataFrame([{"nombre": nombre, **datos}])
+
                 append_column_data(
                     sheet_id=self.sheet_id,
                     hoja=self.hoja_escuelas,
                     id_columna="nombre",
                     df_nuevo=df_update[["nombre"] + columnas_nuevas]
                 )
+
                 actualizar_status_en_sheet(
                     sheet_id=self.sheet_id,
                     hoja=self.hoja_escuelas,
@@ -50,9 +57,9 @@ class GoogleMapsEscuelasScraper:
                     columna_status="status",
                     nuevo_estado="completado"
                 )
-                print(f"✅ Datos subidos para: {nombre}")
+
+                print(f"✅ Datos subidos y estado actualizado para: {nombre}\n")
             else:
-                print(f"⚠️ Sin datos útiles. {nombre} se mantiene como 'pendiente'.")
+                print(f"⚠️ No se extrajo información para: {nombre}. Se mantiene como pendiente.\n")
 
         driver.quit()
-        print("\n🏁 Proceso finalizado.")

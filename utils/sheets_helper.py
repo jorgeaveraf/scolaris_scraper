@@ -199,7 +199,7 @@ def append_column_data(sheet_id, hoja, id_columna, df_nuevo):
         if not idx.empty:
             for col in row.index:
                 if col != id_columna:
-                    ws.update_cell(idx[0]+2, df_original.columns.get_loc(col)+1+1, row[col])  # +2 por encabezado y offset
+                    ws.update_cell(idx[0]+2, df_original.columns.get_loc(col)+1, row[col])  # +2 por encabezado y offset
 
 def actualizar_status_en_sheet(sheet_id, hoja, id_columna, id_valor, columna_status="status", nuevo_estado="completado"):
     client = get_gspread_client()
