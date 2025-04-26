@@ -18,7 +18,7 @@ class GoogleMapsEscuelasScraper:
     def ejecutar(self):
         print("📥 Leyendo hoja de cálculo...")
         df = leer_hoja_como_df(self.sheet_id, self.hoja_escuelas)
-        columnas_nuevas = ['telefono', 'pagina_web', 'horario', 'extra_info']
+        columnas_nuevas = ['telefono', 'pagina_web', 'horario']
 
         # Filtrar solo las filas pendientes
         df_pendientes = df[df["status"].str.lower() == "pendiente"]

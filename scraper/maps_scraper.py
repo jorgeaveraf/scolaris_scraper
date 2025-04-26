@@ -2,6 +2,7 @@ from utils.google_maps_searcher import GoogleMapsSearcher
 from utils.maps_validator import validar_direccion, extraer_direccion_cp
 from bs4 import BeautifulSoup
 import time
+import re
 
 class GoogleMapsDataEnricher:
     def __init__(self, driver):
@@ -31,27 +32,36 @@ class GoogleMapsDataEnricher:
         return self.extraer_info(soup, nombre_maps, direccion_maps, cp_maps)
 
     def extraer_info(self, soup, nombre_maps, direccion_maps, cp_maps):
-        def extraer_texto(selector):
-            tag = soup.select_one(selector)
-            return tag.text.strip() if tag else ""
         
         def extraer_href(selector):
             tag = soup.select_one(selector)
             return tag["href"].strip() if tag and tag.has_attr("href") else ""
+        
+        def es_telefono_valido(telefono):
+            if not telefono:
+                return False
+            digitos = re.sub(r"\D", "", telefono)  # elimina todo excepto números
+            return len(digitos) >= 10
+        
 
         # 📅 Horario
         horario_tag = soup.find("div", attrs={"aria-label": lambda x: x and "lunes" in x})
         horario = horario_tag["aria-label"].strip() if horario_tag else ""
 
-        telefono = extraer_texto('a[href^="tel:"]')
+        bloques = soup.select('div.Io6YTe.fontBodyMedium.kR99db.fdkmkc')
+        telefono = ""
+        if len(bloques) >= 2:
+            telefono = bloques[2].text.strip()
+        
+        if not es_telefono_valido(telefono):
+            telefono = ""
+
         pagina_web = extraer_href('a[data-item-id="authority"]')
-        extra_info = extraer_texto('button[data-item-id="address"] ~ div span')
 
         datos = {
             "telefono": telefono,
             "pagina_web": pagina_web,
             "horario": horario,
-            "extra_info": extra_info,
         }
 
         print("\n📌 Datos para:")
