@@ -2,12 +2,46 @@ import os
 import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+import socket
+import urllib3.util.connection as urllib3_cn
 
+
+
+def force_ipv4():
+    """
+    Forza que las conexiones salientes usen solo IPv4 (para evitar conflictos con IPv6).
+    """
+    def allowed_gai_family():
+        return socket.AF_INET
+    urllib3_cn.allowed_gai_family = allowed_gai_family
+    
 
 def get_gspread_client():
+    force_ipv4()  # 🔧 Opcional: Forzar IPv4 si tu red tiene problemas con IPv6
+
+    # Autenticación con scope
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
-    return gspread.authorize(creds)
+
+    # Cliente gspread
+    client = gspread.authorize(creds)
+
+    # 🔁 Reintentos HTTP
+    session = requests.Session()
+    retries = Retry(
+        total=5,               # hasta 5 intentos
+        backoff_factor=1.5,    # espera progresiva entre intentos
+        status_forcelist=[500, 502, 503, 504],
+        raise_on_status=False
+    )
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("https://", adapter)
+
+    client.session = session
+    return client
 
 
 def subir_csv_a_google_sheets(csv_path, sheet_id, hoja):
@@ -146,4 +180,40 @@ def resetear_estado_hoja(sheet_id, hoja, columna_estado="status", nuevo_estado="
         worksheet.update_cell(i + 2, col_idx_estado + 1, nuevo_estado)
 
     print(f"🔄 Estado de todas las filas de la hoja '{hoja}' reiniciado a '{nuevo_estado}'.")
+    
+def append_column_data(sheet_id, hoja, id_columna, df_nuevo):
+    """
+    Hace update horizontal en filas existentes de la hoja, usando una columna como clave de búsqueda.
+    """
+    client = get_gspread_client()
+    sh = client.open_by_key(sheet_id)
+    ws = sh.worksheet(hoja)
 
+    # Leer hoja actual como DataFrame
+    data = ws.get_all_records()
+    df_original = pd.DataFrame(data)
+
+    for _, row in df_nuevo.iterrows():
+        clave = row[id_columna]
+        idx = df_original[df_original[id_columna] == clave].index
+        if not idx.empty:
+            for col in row.index:
+                if col != id_columna:
+                    ws.update_cell(idx[0]+2, df_original.columns.get_loc(col)+1, row[col])  # +2 por encabezado y offset
+
+def actualizar_status_en_sheet(sheet_id, hoja, id_columna, id_valor, columna_status="status", nuevo_estado="completado"):
+    client = get_gspread_client()
+    sheet = client.open_by_key(sheet_id)
+    ws = sheet.worksheet(hoja)
+
+    data = ws.get_all_records()
+    df = pd.DataFrame(data)
+
+    fila_idx = df[df[id_columna] == id_valor].index
+    if fila_idx.empty:
+        print(f"⚠️ No se encontró '{id_valor}' en columna '{id_columna}' para actualizar estado.")
+        return
+
+    row = fila_idx[0] + 2  # 1 para header, 1 para base 1 en Sheets
+    col = df.columns.get_loc(columna_status) + 1
+    ws.update_cell(row, col, nuevo_estado)
